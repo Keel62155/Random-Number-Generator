@@ -17,10 +17,7 @@
       --glow: rgba(255, 255, 255, 0.25);
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
+    /* Reset and base styles */
     html,
     body {
       width: 100%;
@@ -258,19 +255,6 @@
       box-shadow: none;
     }
 
-    .source-pill {
-      width: fit-content;
-      max-width: 100%;
-      margin: 14px auto 0;
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.095);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
     .footer-note {
       margin-top: 20px;
       color: #767676;
@@ -289,6 +273,14 @@
     }
   </style>
 </head>
+<body>
+  <main class="card">
+    <div class="badge">
+      <div class="badge-dot"></div>
+    </div>
+
+    <h1>Chance Lock</h1>
+    <p class="subtitle">Generate verifiable random numbers using atmospheric noise and cryptographic fallbacks.</p>
 
     <section class="display" aria-live="polite">
       <div class="roll-section">
@@ -312,8 +304,6 @@
       <button id="generateButton" type="button">RNG</button>
       <button id="instantButton" class="ghost-button" type="button">Instant Result</button>
     </div>
-
-    <div id="sourceStatus" class="source-pill">Source: ready</div>
   </main>
 
   <script>
@@ -321,7 +311,6 @@
     const decimalDigitsContainer = document.getElementById("decimalDigits");
     const generateButton = document.getElementById("generateButton");
     const instantButton = document.getElementById("instantButton");
-    const sourceStatus = document.getElementById("sourceStatus");
 
     const MAIN_DIGIT_COUNT = 7;
     const DECIMAL_DIGIT_COUNT = 5;
@@ -469,26 +458,21 @@
 
     async function getRngValues() {
       if (!navigator.onLine) {
-        sourceStatus.textContent = "Source: offline crypto RNG";
         return {
           mainNumber: offlineRandomInt(MAIN_MIN, MAIN_MAX),
           decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX)
         };
       }
 
-      sourceStatus.textContent = "Source: trying Random.org...";
-
       try {
         const mainNumber = await fetchRandomOrgInt(MAIN_MIN, MAIN_MAX);
         const decimalNumber = await fetchRandomOrgInt(DECIMAL_MIN, DECIMAL_MAX);
 
-        sourceStatus.textContent = "Source: Random.org";
         return {
           mainNumber,
           decimalNumber
         };
       } catch (error) {
-        sourceStatus.textContent = "Source: offline crypto RNG fallback";
         return {
           mainNumber: offlineRandomInt(MAIN_MIN, MAIN_MAX),
           decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX)
@@ -641,19 +625,8 @@
     generateButton.addEventListener("click", generateWithAnimation);
     instantButton.addEventListener("click", generateInstant);
 
-    window.addEventListener("online", () => {
-      sourceStatus.textContent = "Source: ready, online";
-    });
-
-    window.addEventListener("offline", () => {
-      sourceStatus.textContent = "Source: offline crypto RNG";
-    });
-
     resetDigits();
 
-    sourceStatus.textContent = navigator.onLine
-      ? "Source: ready, online"
-      : "Source: offline crypto RNG";
   </script>
 </body>
 </html>
