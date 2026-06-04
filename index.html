@@ -208,15 +208,16 @@
       100% { transform: translateY(-1px); }
     }
 
-    .button-row {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
+    .button-stack {
+      width: min(100%, 320px);
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 12px;
-      margin-top: 26px;
+      margin: 26px auto 0;
     }
 
     button {
+      width: 100%;
       border: 0;
       border-radius: 999px;
       padding: 15px 24px;
@@ -257,6 +258,19 @@
       box-shadow: none;
     }
 
+    .source-pill {
+      width: fit-content;
+      max-width: 100%;
+      margin: 14px auto 0;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.095);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .footer-note {
       margin-top: 20px;
       color: #767676;
@@ -280,14 +294,14 @@
   <main class="card">
     <div class="badge">
       <span class="badge-dot"></span>
-      Random.org-style generator
+      Online Random.org / Offline Crypto RNG
     </div>
 
     <h1>Chance Lock</h1>
 
     <p class="subtitle">
-      Press the center button to generate a 1-in-1,000,000 roll and a separate decimal roll out of 100,000.
-      Each digit makes a lock sound as it lands.
+      Press RNG to try Random.org first. If the internet is unavailable, blocked, or Random.org cannot be reached,
+      it automatically uses offline browser crypto randomness instead.
     </p>
 
     <section class="display" aria-live="polite">
@@ -308,13 +322,15 @@
       </div>
     </section>
 
-    <div class="button-row">
-      <button id="generateButton" type="button">Random.org</button>
+    <div class="button-stack">
+      <button id="generateButton" type="button">RNG</button>
       <button id="instantButton" class="ghost-button" type="button">Instant Result</button>
     </div>
 
+    <div id="sourceStatus" class="source-pill">Source: ready</div>
+
     <div class="footer-note">
-      Uses browser cryptographic randomness when available. The sounds are generated inside the browser, so no audio files are needed.
+      Sounds are generated inside the browser, so no audio files are needed.
     </div>
   </main>
 
@@ -323,6 +339,7 @@
     const decimalDigitsContainer = document.getElementById("decimalDigits");
     const generateButton = document.getElementById("generateButton");
     const instantButton = document.getElementById("instantButton");
+    const sourceStatus = document.getElementById("sourceStatus");
 
     const MAIN_DIGIT_COUNT = 7;
     const DECIMAL_DIGIT_COUNT = 5;
@@ -343,6 +360,7 @@
     let spinTimers = [];
     let lockTimers = [];
     let isRunning = false;
+
     let audioContext = null;
 
     function setupAudio() {
@@ -372,40 +390,39 @@
 
       oscillator.type = type;
       oscillator.frequency.setValueAtTime(frequency, now);
-      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, frequency * 0.72), now + duration);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.78, now + duration);
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(volume, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       oscillator.connect(gain);
       gain.connect(audioContext.destination);
 
       oscillator.start(now);
-      oscillator.stop(now + duration + 0.025);
+      oscillator.stop(now + duration + 0.03);
     }
 
     function playLockSound(section, index) {
-      const baseFrequency = section === "main" ? 430 : 610;
-      const frequency = baseFrequency + index * 38;
+      const baseFrequency = section === "main" ? 420 : 620;
+      const frequency = baseFrequency + index * 42;
 
-      playTone(frequency, 0.085, 0.12, "triangle");
-
+      playTone(frequency, 0.09, 0.13, "triangle");
       setTimeout(() => {
-        playTone(frequency * 1.42, 0.045, 0.055, "sine");
+        playTone(frequency * 1.5, 0.055, 0.055, "sine");
       }, 22);
     }
 
     function playButtonSound() {
-      playTone(250, 0.065, 0.075, "sine");
+      playTone(260, 0.06, 0.08, "sine");
     }
 
     function playFinishedSound() {
-      playTone(730, 0.095, 0.09, "triangle");
-      setTimeout(() => playTone(920, 0.11, 0.075, "sine"), 75);
+      playTone(720, 0.1, 0.09, "triangle");
+      setTimeout(() => playTone(920, 0.12, 0.075, "sine"), 80);
     }
 
-    function randomInt(min, max) {
+    function offlineRandomInt(min, max) {
       const range = max - min + 1;
 
       if (window.crypto && window.crypto.getRandomValues) {
@@ -421,6 +438,79 @@
       }
 
       return Math.floor(Math.random() * range) + min;
+    }
+
+    function withTimeout(promise, milliseconds) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error("Request timed out"));
+        }, milliseconds);
+
+        promise
+          .then((value) => {
+            clearTimeout(timer);
+            resolve(value);
+          })
+          .catch((error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+      });
+    }
+
+    async function fetchRandomOrgInt(min, max) {
+      const url =
+        "https://www.random.org/integers/?num=1" +
+        "&min=" + encodeURIComponent(min) +
+        "&max=" + encodeURIComponent(max) +
+        "&col=1&base=10&format=plain&rnd=new";
+
+      const response = await withTimeout(fetch(url, { cache: "no-store" }), 3500);
+
+      if (!response.ok) {
+        throw new Error("Random.org request failed");
+      }
+
+      const text = await response.text();
+      const value = Number.parseInt(text.trim(), 10);
+
+      if (!Number.isInteger(value) || value < min || value > max) {
+        throw new Error("Random.org returned an invalid value");
+      }
+
+      return value;
+    }
+
+    async function getRngValues() {
+      if (!navigator.onLine) {
+        sourceStatus.textContent = "Source: offline crypto RNG";
+        return {
+          mainNumber: offlineRandomInt(MAIN_MIN, MAIN_MAX),
+          decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX),
+          source: "offline"
+        };
+      }
+
+      sourceStatus.textContent = "Source: trying Random.org...";
+
+      try {
+        const mainNumber = await fetchRandomOrgInt(MAIN_MIN, MAIN_MAX);
+        const decimalNumber = await fetchRandomOrgInt(DECIMAL_MIN, DECIMAL_MAX);
+
+        sourceStatus.textContent = "Source: Random.org";
+        return {
+          mainNumber,
+          decimalNumber,
+          source: "random.org"
+        };
+      } catch (error) {
+        sourceStatus.textContent = "Source: offline crypto RNG fallback";
+        return {
+          mainNumber: offlineRandomInt(MAIN_MIN, MAIN_MAX),
+          decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX),
+          source: "offline"
+        };
+      }
     }
 
     function toDigits(number, digitCount) {
@@ -467,7 +557,7 @@
         digit.classList.add("spinning");
 
         const timer = setInterval(() => {
-          digit.textContent = String(randomInt(1, 9));
+          digit.textContent = String(offlineRandomInt(1, 9));
         }, SPIN_INTERVAL + index * 4);
 
         digit.spinTimer = timer;
@@ -475,7 +565,7 @@
       });
     }
 
-    function lockDigitSet(elements, finalDigits, startDelay, section, onComplete) {
+    function lockDigitSet(elements, finalDigits, section, startDelay, onComplete) {
       let lockedCount = 0;
 
       finalDigits.forEach((finalDigit, index) => {
@@ -509,7 +599,7 @@
       setButtonsDisabled(false);
     }
 
-    function generateWithAnimation() {
+    async function generateWithAnimation() {
       if (isRunning) return;
 
       setupAudio();
@@ -519,23 +609,27 @@
       clearAllTimers();
       setButtonsDisabled(true);
 
-      const mainNumber = randomInt(MAIN_MIN, MAIN_MAX);
-      const decimalNumber = randomInt(DECIMAL_MIN, DECIMAL_MAX);
-
-      const mainFinalDigits = toDigits(mainNumber, MAIN_DIGIT_COUNT);
-      const decimalFinalDigits = toDigits(decimalNumber, DECIMAL_DIGIT_COUNT);
-
       resetDigits();
 
       startSpinning(mainDigitElements);
       startSpinning(decimalDigitElements);
 
-      lockDigitSet(mainDigitElements, mainFinalDigits, MAIN_LOCK_DELAY_START, "main", function () {
-        lockDigitSet(decimalDigitElements, decimalFinalDigits, DELAY_BETWEEN_MAIN_AND_DECIMAL, "decimal", finishGeneration);
+      const rngValues = await getRngValues();
+
+      const mainFinalDigits = toDigits(rngValues.mainNumber, MAIN_DIGIT_COUNT);
+      const decimalFinalDigits = toDigits(rngValues.decimalNumber, DECIMAL_DIGIT_COUNT);
+
+      const decimalLockDelayStart =
+        MAIN_LOCK_DELAY_START +
+        ((MAIN_DIGIT_COUNT - 1) * LOCK_DELAY_STEP) +
+        DELAY_BETWEEN_MAIN_AND_DECIMAL;
+
+      lockDigitSet(mainDigitElements, mainFinalDigits, "main", MAIN_LOCK_DELAY_START, function () {
+        lockDigitSet(decimalDigitElements, decimalFinalDigits, "decimal", decimalLockDelayStart, finishGeneration);
       });
     }
 
-    function generateInstant() {
+    async function generateInstant() {
       setupAudio();
       playButtonSound();
 
@@ -544,13 +638,13 @@
         isRunning = false;
       }
 
-      const mainNumber = randomInt(MAIN_MIN, MAIN_MAX);
-      const decimalNumber = randomInt(DECIMAL_MIN, DECIMAL_MAX);
-
-      const mainFinalDigits = toDigits(mainNumber, MAIN_DIGIT_COUNT);
-      const decimalFinalDigits = toDigits(decimalNumber, DECIMAL_DIGIT_COUNT);
-
+      setButtonsDisabled(true);
       resetDigits();
+
+      const rngValues = await getRngValues();
+
+      const mainFinalDigits = toDigits(rngValues.mainNumber, MAIN_DIGIT_COUNT);
+      const decimalFinalDigits = toDigits(rngValues.decimalNumber, DECIMAL_DIGIT_COUNT);
 
       mainFinalDigits.forEach((digitValue, index) => {
         mainDigitElements[index].textContent = digitValue;
@@ -563,13 +657,25 @@
       });
 
       playFinishedSound();
-      finishGeneration();
+      setButtonsDisabled(false);
     }
 
     generateButton.addEventListener("click", generateWithAnimation);
     instantButton.addEventListener("click", generateInstant);
 
+    window.addEventListener("online", () => {
+      sourceStatus.textContent = "Source: ready, online";
+    });
+
+    window.addEventListener("offline", () => {
+      sourceStatus.textContent = "Source: offline crypto RNG";
+    });
+
     resetDigits();
+
+    sourceStatus.textContent = navigator.onLine
+      ? "Source: ready, online"
+      : "Source: offline crypto RNG";
   </script>
 </body>
-</html>
+</html>s
