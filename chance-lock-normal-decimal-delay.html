@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chance Lock</title>
+
+  <style>
+    :root {
+      --card: rgba(18, 18, 18, 0.94);
+      --card-2: #0d0d0d;
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f4f4f4;
+      --muted: #9a9a9a;
+      --locked: #ffffff;
+      --shadow: rgba(0, 0, 0, 0.72);
+      --glow: rgba(255, 255, 255, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.13), transparent 28%),
+        radial-gradient(circle at 50% 82%, rgba(255, 255, 255, 0.055), transparent 34%),
+        linear-gradient(135deg, #000000, #111111 52%, #050505);
+      display: grid;
+      place-items: center;
+      overflow-x: hidden;
+      padding: 26px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.055;
+      background-image:
+        linear-gradient(90deg, #ffffff 1px, transparent 1px),
+        linear-gradient(#ffffff 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(circle at center, black, transparent 75%);
+    }
+
+    .card {
+      width: min(94vw, 820px);
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: clamp(24px, 4vw, 38px);
+      border-radius: 30px;
+      border: 1px solid var(--border);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
+        var(--card);
+      box-shadow:
+        0 34px 100px var(--shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(14px);
+    }
+
+    .badge {
+      width: fit-content;
+      margin: 0 auto 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.65);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(38px, 7vw, 64px);
+      line-height: 0.95;
+      letter-spacing: -2px;
+      font-weight: 900;
+    }
+
+    .subtitle {
+      width: min(100%, 600px);
+      margin: 16px auto 26px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .display {
+      padding: clamp(18px, 3vw, 28px);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+        var(--card-2);
+      box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.58);
+    }
+
+    .roll-section + .roll-section {
+      margin-top: 26px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+      margin-bottom: 12px;
+    }
+
+    .digit-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(5px, 1vw, 10px);
+      flex-wrap: wrap;
+      min-height: 78px;
+    }
+
+    .digits {
+      display: flex;
+      justify-content: center;
+      gap: clamp(5px, 1vw, 10px);
+      flex-wrap: wrap;
+    }
+
+    .digit {
+      width: clamp(34px, 6.3vw, 56px);
+      height: clamp(52px, 8.4vw, 74px);
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(180deg, #222222, #080808);
+      color: #bebebe;
+      font-size: clamp(28px, 5.4vw, 48px);
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 12px 28px rgba(0, 0, 0, 0.45);
+      transition:
+        transform 180ms ease,
+        color 180ms ease,
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        background 180ms ease;
+    }
+
+    .digit::after {
+      content: "";
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      top: 50%;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .digit.spinning {
+      animation: digit-shake 90ms linear infinite;
+    }
+
+    .digit.locked {
+      color: var(--locked);
+      border-color: rgba(255, 255, 255, 0.44);
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.18), transparent 45%),
+        linear-gradient(180deg, #2c2c2c, #101010);
+      box-shadow:
+        0 0 26px var(--glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 12px 30px rgba(0, 0, 0, 0.48);
+      transform: translateY(-2px) scale(1.04);
+    }
+
+    @keyframes digit-shake {
+      0% { transform: translateY(-1px); }
+      50% { transform: translateY(1px); }
+      100% { transform: translateY(-1px); }
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 15px 24px;
+      cursor: pointer;
+      color: #050505;
+      background: linear-gradient(180deg, #ffffff, #adadad);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      box-shadow:
+        0 14px 38px rgba(255, 255, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      transition:
+        transform 160ms ease,
+        filter 160ms ease,
+        opacity 160ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.05);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .ghost-button {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      color: #767676;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 620px) {
+      body {
+        padding: 16px;
+      }
+
+      .card {
+        padding: 22px 15px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Random.org-style generator
+    </div>
+
+    <h1>Chance Lock</h1>
+
+    <p class="subtitle">
+      Press the center button to generate a 1-in-1,000,000 roll and a separate decimal roll out of 100,000.
+      The decimal starts locking about one normal lock beat after the main number finishes.
+    </p>
+
+    <section class="display" aria-live="polite">
+      <div class="roll-section">
+        <div class="label">1-in-1,000,000 Roll</div>
+
+        <div class="digit-line">
+          <div id="mainDigits" class="digits"></div>
+        </div>
+      </div>
+
+      <div class="roll-section">
+        <div class="label">Decimal Roll / 100,000</div>
+
+        <div class="digit-line">
+          <div id="decimalDigits" class="digits"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="button-row">
+      <button id="generateButton" type="button">Random.org</button>
+      <button id="instantButton" class="ghost-button" type="button">Instant Result</button>
+    </div>
+
+    <div class="footer-note">
+      Uses browser cryptographic randomness when available. The Random.org button name is visual only unless you connect an API.
+    </div>
+  </main>
+
+  <script>
+    const mainDigitsContainer = document.getElementById("mainDigits");
+    const decimalDigitsContainer = document.getElementById("decimalDigits");
+    const generateButton = document.getElementById("generateButton");
+    const instantButton = document.getElementById("instantButton");
+
+    const MAIN_DIGIT_COUNT = 7;
+    const DECIMAL_DIGIT_COUNT = 5;
+
+    const MAIN_MIN = 1;
+    const MAIN_MAX = 1000000;
+
+    const DECIMAL_MIN = 1;
+    const DECIMAL_MAX = 99999;
+
+    const MAIN_LOCK_DELAY_START = 1400;
+    const LOCK_DELAY_STEP = 430;
+    const DELAY_BETWEEN_MAIN_AND_DECIMAL = 430;
+    const SPIN_INTERVAL = 45;
+
+    let mainDigitElements = [];
+    let decimalDigitElements = [];
+    let spinTimers = [];
+    let lockTimers = [];
+    let isRunning = false;
+
+    function randomInt(min, max) {
+      const range = max - min + 1;
+
+      if (window.crypto && window.crypto.getRandomValues) {
+        const maxUint = 0xffffffff;
+        const limit = Math.floor(maxUint / range) * range;
+        const buffer = new Uint32Array(1);
+
+        do {
+          window.crypto.getRandomValues(buffer);
+        } while (buffer[0] >= limit);
+
+        return min + (buffer[0] % range);
+      }
+
+      return Math.floor(Math.random() * range) + min;
+    }
+
+    function toDigits(number, digitCount) {
+      return String(number).padStart(digitCount, "0").split("");
+    }
+
+    function clearAllTimers() {
+      spinTimers.forEach(clearInterval);
+      lockTimers.forEach(clearTimeout);
+
+      spinTimers = [];
+      lockTimers = [];
+    }
+
+    function buildDigitSet(container, count, startValue) {
+      container.innerHTML = "";
+
+      const elements = [];
+
+      for (let i = 0; i < count; i++) {
+        const digit = document.createElement("div");
+        digit.className = "digit";
+        digit.textContent = startValue;
+        container.appendChild(digit);
+        elements.push(digit);
+      }
+
+      return elements;
+    }
+
+    function resetDigits() {
+      mainDigitElements = buildDigitSet(mainDigitsContainer, MAIN_DIGIT_COUNT, "0");
+      decimalDigitElements = buildDigitSet(decimalDigitsContainer, DECIMAL_DIGIT_COUNT, "0");
+    }
+
+    function setButtonsDisabled(disabled) {
+      generateButton.disabled = disabled;
+      instantButton.disabled = disabled;
+    }
+
+    function startSpinning(elements) {
+      elements.forEach((digit, index) => {
+        digit.classList.remove("locked");
+        digit.classList.add("spinning");
+
+        const timer = setInterval(() => {
+          digit.textContent = String(randomInt(1, 9));
+        }, SPIN_INTERVAL + index * 4);
+
+        digit.spinTimer = timer;
+        spinTimers.push(timer);
+      });
+    }
+
+    function lockDigitSet(elements, finalDigits, startDelay, onComplete) {
+      let lockedCount = 0;
+
+      finalDigits.forEach((finalDigit, index) => {
+        const timer = setTimeout(() => {
+          const digit = elements[index];
+
+          if (digit.spinTimer) {
+            clearInterval(digit.spinTimer);
+          }
+
+          digit.textContent = finalDigit;
+          digit.classList.remove("spinning");
+          digit.classList.add("locked");
+
+          lockedCount++;
+
+          if (lockedCount === finalDigits.length && typeof onComplete === "function") {
+            onComplete();
+          }
+        }, startDelay + index * LOCK_DELAY_STEP);
+
+        lockTimers.push(timer);
+      });
+    }
+
+    function finishGeneration() {
+      isRunning = false;
+      setButtonsDisabled(false);
+    }
+
+    function generateWithAnimation() {
+      if (isRunning) return;
+
+      isRunning = true;
+      clearAllTimers();
+      setButtonsDisabled(true);
+
+      const mainNumber = randomInt(MAIN_MIN, MAIN_MAX);
+      const decimalNumber = randomInt(DECIMAL_MIN, DECIMAL_MAX);
+
+      const mainFinalDigits = toDigits(mainNumber, MAIN_DIGIT_COUNT);
+      const decimalFinalDigits = toDigits(decimalNumber, DECIMAL_DIGIT_COUNT);
+
+      resetDigits();
+
+      startSpinning(mainDigitElements);
+      startSpinning(decimalDigitElements);
+
+      lockDigitSet(mainDigitElements, mainFinalDigits, MAIN_LOCK_DELAY_START, function () {
+        lockDigitSet(decimalDigitElements, decimalFinalDigits, DELAY_BETWEEN_MAIN_AND_DECIMAL, finishGeneration);
+      });
+    }
+
+    function generateInstant() {
+      if (isRunning) {
+        clearAllTimers();
+        isRunning = false;
+      }
+
+      const mainNumber = randomInt(MAIN_MIN, MAIN_MAX);
+      const decimalNumber = randomInt(DECIMAL_MIN, DECIMAL_MAX);
+
+      const mainFinalDigits = toDigits(mainNumber, MAIN_DIGIT_COUNT);
+      const decimalFinalDigits = toDigits(decimalNumber, DECIMAL_DIGIT_COUNT);
+
+      resetDigits();
+
+      mainFinalDigits.forEach((digitValue, index) => {
+        mainDigitElements[index].textContent = digitValue;
+        mainDigitElements[index].classList.add("locked");
+      });
+
+      decimalFinalDigits.forEach((digitValue, index) => {
+        decimalDigitElements[index].textContent = digitValue;
+        decimalDigitElements[index].classList.add("locked");
+      });
+
+      finishGeneration();
+    }
+
+    generateButton.addEventListener("click", generateWithAnimation);
+    instantButton.addEventListener("click", generateInstant);
+
+    resetDigits();
+  </script>
+</body>
+</html>
