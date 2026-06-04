@@ -352,7 +352,7 @@
 
     const MAIN_LOCK_DELAY_START = 1400;
     const LOCK_DELAY_STEP = 390;
-    const DELAY_BETWEEN_MAIN_AND_DECIMAL = 260;
+    const DECIMAL_START_AFTER_MAIN = LOCK_DELAY_STEP;
     const SPIN_INTERVAL = 45;
 
     let mainDigitElements = [];
@@ -619,13 +619,8 @@
       const mainFinalDigits = toDigits(rngValues.mainNumber, MAIN_DIGIT_COUNT);
       const decimalFinalDigits = toDigits(rngValues.decimalNumber, DECIMAL_DIGIT_COUNT);
 
-      const decimalLockDelayStart =
-        MAIN_LOCK_DELAY_START +
-        ((MAIN_DIGIT_COUNT - 1) * LOCK_DELAY_STEP) +
-        DELAY_BETWEEN_MAIN_AND_DECIMAL;
-
       lockDigitSet(mainDigitElements, mainFinalDigits, "main", MAIN_LOCK_DELAY_START, function () {
-        lockDigitSet(decimalDigitElements, decimalFinalDigits, "decimal", decimalLockDelayStart, finishGeneration);
+        lockDigitSet(decimalDigitElements, decimalFinalDigits, "decimal", DECIMAL_START_AFTER_MAIN, finishGeneration);
       });
     }
 
@@ -678,4 +673,4 @@
       : "Source: offline crypto RNG";
   </script>
 </body>
-</html>s
+</html>
