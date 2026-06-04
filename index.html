@@ -355,6 +355,9 @@
     const DECIMAL_START_AFTER_MAIN = LOCK_DELAY_STEP;
     const SPIN_INTERVAL = 45;
 
+    const FIRST_LOCK_FREQUENCY = 420;
+    const LOCK_FREQUENCY_STEP = 42;
+
     let mainDigitElements = [];
     let decimalDigitElements = [];
     let spinTimers = [];
@@ -404,8 +407,8 @@
     }
 
     function playLockSound(section, index) {
-      const baseFrequency = section === "main" ? 420 : 620;
-      const frequency = baseFrequency + index * 42;
+      const soundIndex = section === "decimal" ? MAIN_DIGIT_COUNT + index : index;
+      const frequency = FIRST_LOCK_FREQUENCY + soundIndex * LOCK_FREQUENCY_STEP;
 
       playTone(frequency, 0.09, 0.13, "triangle");
       setTimeout(() => {
@@ -418,8 +421,9 @@
     }
 
     function playFinishedSound() {
-      playTone(720, 0.1, 0.09, "triangle");
-      setTimeout(() => playTone(920, 0.12, 0.075, "sine"), 80);
+      const finalFrequency = FIRST_LOCK_FREQUENCY + (MAIN_DIGIT_COUNT + DECIMAL_DIGIT_COUNT) * LOCK_FREQUENCY_STEP;
+      playTone(finalFrequency, 0.1, 0.09, "triangle");
+      setTimeout(() => playTone(finalFrequency + 140, 0.12, 0.075, "sine"), 80);
     }
 
     function offlineRandomInt(min, max) {
@@ -486,8 +490,7 @@
         sourceStatus.textContent = "Source: offline crypto RNG";
         return {
           mainNumber: offlineRandomInt(MAIN_MIN, MAIN_MAX),
-          decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX),
-          source: "offline"
+          decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX)
         };
       }
 
@@ -500,15 +503,13 @@
         sourceStatus.textContent = "Source: Random.org";
         return {
           mainNumber,
-          decimalNumber,
-          source: "random.org"
+          decimalNumber
         };
       } catch (error) {
         sourceStatus.textContent = "Source: offline crypto RNG fallback";
         return {
           mainNumber: offlineRandomInt(MAIN_MIN, MAIN_MAX),
-          decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX),
-          source: "offline"
+          decimalNumber: offlineRandomInt(DECIMAL_MIN, DECIMAL_MAX)
         };
       }
     }
