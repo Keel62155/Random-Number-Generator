@@ -287,7 +287,7 @@
 
     <p class="subtitle">
       Press the center button to generate a 1-in-1,000,000 roll and a separate decimal roll out of 100,000.
-      The decimal starts locking about one normal lock beat after the main number finishes.
+      Each digit makes a lock sound as it lands.
     </p>
 
     <section class="display" aria-live="polite">
@@ -314,7 +314,7 @@
     </div>
 
     <div class="footer-note">
-      Uses browser cryptographic randomness when available. The Random.org button name is visual only unless you connect an API.
+      Uses browser cryptographic randomness when available. The sounds are generated inside the browser, so no audio files are needed.
     </div>
   </main>
 
@@ -334,8 +334,8 @@
     const DECIMAL_MAX = 99999;
 
     const MAIN_LOCK_DELAY_START = 1400;
-    const LOCK_DELAY_STEP = 430;
-    const DELAY_BETWEEN_MAIN_AND_DECIMAL = 430;
+    const LOCK_DELAY_STEP = 390;
+    const DELAY_BETWEEN_MAIN_AND_DECIMAL = 260;
     const SPIN_INTERVAL = 45;
 
     let mainDigitElements = [];
@@ -343,6 +343,67 @@
     let spinTimers = [];
     let lockTimers = [];
     let isRunning = false;
+    let audioContext = null;
+
+    function setupAudio() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        return;
+      }
+
+      if (!audioContext) {
+        audioContext = new AudioContextClass();
+      }
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+    }
+
+    function playTone(frequency, duration, volume, type) {
+      if (!audioContext) {
+        return;
+      }
+
+      const now = audioContext.currentTime;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, now);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, frequency * 0.72), now + duration);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(volume, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.025);
+    }
+
+    function playLockSound(section, index) {
+      const baseFrequency = section === "main" ? 430 : 610;
+      const frequency = baseFrequency + index * 38;
+
+      playTone(frequency, 0.085, 0.12, "triangle");
+
+      setTimeout(() => {
+        playTone(frequency * 1.42, 0.045, 0.055, "sine");
+      }, 22);
+    }
+
+    function playButtonSound() {
+      playTone(250, 0.065, 0.075, "sine");
+    }
+
+    function playFinishedSound() {
+      playTone(730, 0.095, 0.09, "triangle");
+      setTimeout(() => playTone(920, 0.11, 0.075, "sine"), 75);
+    }
 
     function randomInt(min, max) {
       const range = max - min + 1;
@@ -414,7 +475,7 @@
       });
     }
 
-    function lockDigitSet(elements, finalDigits, startDelay, onComplete) {
+    function lockDigitSet(elements, finalDigits, startDelay, section, onComplete) {
       let lockedCount = 0;
 
       finalDigits.forEach((finalDigit, index) => {
@@ -429,6 +490,8 @@
           digit.classList.remove("spinning");
           digit.classList.add("locked");
 
+          playLockSound(section, index);
+
           lockedCount++;
 
           if (lockedCount === finalDigits.length && typeof onComplete === "function") {
@@ -441,12 +504,16 @@
     }
 
     function finishGeneration() {
+      playFinishedSound();
       isRunning = false;
       setButtonsDisabled(false);
     }
 
     function generateWithAnimation() {
       if (isRunning) return;
+
+      setupAudio();
+      playButtonSound();
 
       isRunning = true;
       clearAllTimers();
@@ -463,12 +530,15 @@
       startSpinning(mainDigitElements);
       startSpinning(decimalDigitElements);
 
-      lockDigitSet(mainDigitElements, mainFinalDigits, MAIN_LOCK_DELAY_START, function () {
-        lockDigitSet(decimalDigitElements, decimalFinalDigits, DELAY_BETWEEN_MAIN_AND_DECIMAL, finishGeneration);
+      lockDigitSet(mainDigitElements, mainFinalDigits, MAIN_LOCK_DELAY_START, "main", function () {
+        lockDigitSet(decimalDigitElements, decimalFinalDigits, DELAY_BETWEEN_MAIN_AND_DECIMAL, "decimal", finishGeneration);
       });
     }
 
     function generateInstant() {
+      setupAudio();
+      playButtonSound();
+
       if (isRunning) {
         clearAllTimers();
         isRunning = false;
@@ -492,6 +562,7 @@
         decimalDigitElements[index].classList.add("locked");
       });
 
+      playFinishedSound();
       finishGeneration();
     }
 
